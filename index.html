@@ -18,7 +18,6 @@
         .animate-fadeIn {
             animation: fadeIn 0.25s ease-out forwards;
         }
-        /* Custom scrollbar handling for beautiful compact mobile view */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -32,9 +31,9 @@
             <p class="text-xl font-bold text-slate-500 mt-1">Good morning.</p>
         </div>
         <div class="flex items-center gap-3">
-            <button onclick="openModal('notifications')" class="relative bg-white p-3.5 rounded-full shadow-sm text-slate-700 border border-slate-100 active:scale-95 transition-transform cursor-pointer">
+            <button onclick="requestNotificationPermission()" id="bell-btn" class="relative bg-white p-3.5 rounded-full shadow-sm text-slate-700 border border-slate-100 active:scale-95 transition-transform cursor-pointer">
                 <i data-lucide="bell" class="w-6 h-6"></i>
-                <span id="notif-badge" class="absolute top-3 right-3 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-white"></span>
+                <span id="notif-badge" class="absolute top-3 right-3 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-white hidden"></span>
             </button>
             <button onclick="openModal('settings')" class="bg-white p-3.5 rounded-full shadow-sm text-slate-700 border border-slate-100 active:scale-95 transition-transform cursor-pointer">
                 <i data-lucide="settings" class="w-6 h-6"></i>
@@ -84,7 +83,7 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-black tracking-tight leading-snug">Medication</h3>
-                    <p id="meds-summary" class="text-sm font-bold opacity-90 mt-0.5">Pending</p>
+                    <p id="meds-summary" class="text-sm font-bold opacity-90 mt-0.5">Alarms Active</p>
                 </div>
             </button>
 
@@ -106,7 +105,7 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-black tracking-tight leading-snug">Appointments</h3>
-                    <p id="appts-summary" class="text-sm font-bold opacity-90 mt-0.5">No Checklist Items</p>
+                    <p id="appts-summary" class="text-sm font-bold opacity-90 mt-0.5">Alarms Active</p>
                 </div>
             </button>
 
@@ -147,12 +146,11 @@
     </div>
 
     <script>
-        // GLOBAL MODIFIABLE STATE MANAGEMENT
+        // GLOBAL STATE MANAGEMENT
         let state = {
             profile: { name: "Queen Anne", health: "Nearsighted (-4.00)", waterGoal: 2500 },
             waterLog: 0,
             currentWorkoutDay: "Mon",
-            // Restructured into weekly mapping track arrays
             weeklyWorkouts: {
                 "Mon": [{ id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6ZnN5MHVnbG9wOHM2OHR3M2t5dmM0N29kMmd5OHJvYmIxeXp6dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UTX8UTK973AsbpasN5/giphy.gif", completed: false, expanded: false }],
                 "Tue": [{ id: 2, name: "Dumbbell Bench Press", detail: "3 Sets x 12 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Y5amx4dzFwZzgzMGpxcnVvZHJvMnY3czkwb2kycGw0Z3AwYWVnMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/hSojCAdPFFp9X67b84/giphy.gif", completed: false, expanded: false }],
@@ -163,11 +161,11 @@
                 "Sun": []
             },
             medications: [
-                { id: 1, name: "Daily Multivitamin", time: "8:00 AM", taken: false },
-                { id: 2, name: "Omega-3 Fish Oil", time: "12:30 PM", taken: false }
+                { id: 1, name: "Daily Multivitamin", alarmTime: "08:00", taken: false, triggeredToday: false },
+                { id: 2, name: "Omega-3 Fish Oil", alarmTime: "12:30", taken: false, triggeredToday: false }
             ],
             appointments: [
-                { id: 1, title: "Dr. Lee - Wellness Checkup", schedule: "Next Tuesday at 2:00 PM", done: false }
+                { id: 1, title: "Dr. Lee - Wellness Checkup", alarmDateTime: "2026-06-10T14:00", done: false, triggered: false }
             ],
             groceries: [],
             expenses: []
@@ -176,20 +174,13 @@
         let currentRecipeInput = "";
         let currentRecipeOutputHtml = "";
 
-        // Attempt clean storage load and backwards compatibility check
+        // Load data cache seamlessly
         if (localStorage.getItem("synergy360_state")) {
             try {
                 const loadedState = JSON.parse(localStorage.getItem("synergy360_state"));
-                if (loadedState.weeklyWorkouts) {
-                    state = loadedState;
-                } else {
-                    // Port older structures over dynamically
-                    state = Object.assign({}, state, loadedState);
-                    state.weeklyWorkouts = { "Mon": loadedState.workouts || state.weeklyWorkouts.Mon, "Tue": [], "Wed": [], "Thu": [], "Fri": [], "Sat": [], "Sun": [] };
-                }
-            } catch(e) {
-                console.error("State parsing error", e);
-            }
+                // Dynamic clean merging for structural backwards safety
+                state = Object.assign({}, state, loadedState);
+            } catch(e) { console.error(e); }
         }
 
         function saveState() {
@@ -202,7 +193,6 @@
             const goalLiters = (state.profile.waterGoal / 1000).toFixed(1);
             document.getElementById('water-stat').innerText = `${liters}L`;
             document.getElementById('water-goal-text').innerText = `${goalLiters}L`;
-            
             const pct = Math.min((state.waterLog / state.profile.waterGoal) * 100, 100);
             document.getElementById('water-bar').style.width = `${pct}%`;
         }
@@ -217,24 +207,123 @@
         function updateDashboardCounters() {
             document.getElementById('header-name').innerText = (state.profile.name || "User").toUpperCase();
             
-            // Show total actions pending for the globally active daily profile track
             const currentDayList = state.weeklyWorkouts[state.currentWorkoutDay] || [];
             const completedCount = currentDayList.filter(w => w.completed).length;
             document.getElementById('gym-summary').innerText = `${state.currentWorkoutDay}: ${completedCount}/${currentDayList.length} Done`;
             
-            const pendingMeds = state.medications.filter(m => !m.taken).length;
-            document.getElementById('meds-summary').innerText = pendingMeds === 0 ? "All Taken Today" : `${pendingMeds} Pending`;
+            const activeMeds = state.medications.filter(m => !m.taken).length;
+            document.getElementById('meds-summary').innerText = `${activeMeds} Alarms Active`;
             
             const openAppts = state.appointments.filter(a => !a.done).length;
-            document.getElementById('appts-summary').innerText = openAppts === 0 ? "All Cleared" : `${openAppts} Upcoming`;
+            document.getElementById('appts-summary').innerText = `${openAppts} Scheduled`;
 
             document.getElementById('grocery-summary').innerText = `${state.groceries.length} Items`;
-            
             const totalExpense = state.expenses.reduce((sum, item) => sum + item.amount, 0);
             document.getElementById('expense-summary').innerText = `₱${totalExpense.toFixed(2)} Total`;
         }
 
-        // UNIVERSAL INTERACTIVE MODAL COMPILATION ENGINE
+        // ================= BACKGROUND ALARM & ENGINE (REAL-TIME TRACKING) =================
+        function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("This mobile browser does not support notification scheduling alarms.");
+                return;
+            }
+            Notification.requestPermission().then(permission => {
+                const bell = document.getElementById('bell-btn');
+                if (permission === "granted") {
+                    bell.classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-200');
+                    // Fire instant feedback validation vibration/notif
+                    sendSystemAlert("Synergy360 Alarms Active", "Alarms and reminder modules configured successfully!");
+                } else {
+                    alert("Permissions blocked. Alarms cannot pop up unless notification access is allowed.");
+                }
+            });
+        }
+
+        function sendSystemAlert(title, message) {
+            if (Notification.permission === "granted") {
+                // Background service notification trigger fallback mechanics
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification(title, {
+                        body: message,
+                        icon: 'https://cdn-icons-png.flaticon.com/512/3602/3602123.png',
+                        vibrate: [200, 100, 200, 100, 400],
+                        tag: 'synergy-alarm'
+                    });
+                }).catch(() => {
+                    // Standard inline active window notification execution tracking
+                    new Notification(title, { body: message });
+                });
+                
+                // Sound alarm synthesis layer (Generates actual audio beep tone directly through mobile speakers)
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = "sine";
+                    osc.frequency.setValueAtTime(880, ctx.currentTime); // Crisp warning tone frequency
+                    gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 1.2); // Beep duration 1.2s
+                } catch (err) { console.log("Audio syntax block context minimized", err); }
+            }
+        }
+
+        // Core App Background Clock Loop Checking Tickers Every 15 Seconds
+        setInterval(() => {
+            const now = new Date();
+            
+            // Format strings dynamically to evaluate standard inputs matching values
+            const currentHourMinutes = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const currentFullIsoString = now.toISOString().slice(0, 16); 
+            const formattedLocalIsoString = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${currentHourMinutes}`;
+
+            let stateUpdated = false;
+
+            // 1. Process Medication Checklist Alarm Loops
+            state.medications.forEach(med => {
+                if (med.alarmTime === currentHourMinutes && !med.triggeredToday && !med.taken) {
+                    sendSystemAlert("💊 MEDICATION REMINDER DUE", `Time to take your medication: ${med.name}`);
+                    med.triggeredToday = true;
+                    stateUpdated = true;
+                }
+                // Automatically reset the daily lock trigger when passing midnight tracking cycles safely
+                if (currentHourMinutes === "00:00") {
+                    med.triggeredToday = false;
+                    med.taken = false;
+                    stateUpdated = true;
+                }
+            });
+
+            // 2. Process Appointment Fixed Calendar Tracker Alarms
+            state.appointments.forEach(appt => {
+                if (appt.alarmDateTime && appt.alarmDateTime === formattedLocalIsoString && !appt.triggered && !appt.done) {
+                    sendSystemAlert("📅 APPOINTMENT REMINDER ALARM", `Happening Now: ${appt.title}`);
+                    appt.triggered = true;
+                    stateUpdated = true;
+                }
+            });
+
+            if (stateUpdated) {
+                saveState();
+                // Selectively refresh active displays in place if open
+                const overlay = document.getElementById('app-modal');
+                if (!overlay.classList.contains('hidden')) {
+                    const activeTitle = document.getElementById('modal-title').innerText;
+                    if (activeTitle.includes("Medical")) openModal('meds');
+                    if (activeTitle.includes("Appointments")) openModal('appointments');
+                }
+            }
+        }, 15000);
+
+        // Register default blank Service Worker to enable background push architecture capabilities over mobile networks
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:text/javascript,' + encodeURIComponent('self.addEventListener("activate",     e => e.waitUntil(self.clients.claim()));'));
+        }
+
+        // ================= UNIVERSAL INTERACTIVE MODAL COMPILATION ENGINE =================
         function openModal(feature) {
             const title = document.getElementById('modal-title');
             const body = document.getElementById('modal-body');
@@ -266,14 +355,10 @@
             } 
             else if (feature === 'gym') {
                 title.innerText = "Gym Workout Schedule";
-                
-                // Formulate the day selector buttons element loop
                 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
                 let dayTabsHtml = `<div class="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar">`;
                 days.forEach(d => {
-                    const activeStyle = state.currentWorkoutDay === d 
-                        ? 'bg-blue-500 text-white shadow-sm' 
-                        : 'bg-slate-100 text-slate-600';
+                    const activeStyle = state.currentWorkoutDay === d ? 'bg-blue-500 text-white shadow-sm' : 'bg-slate-100 text-slate-600';
                     dayTabsHtml += `<button onclick="switchWorkoutDay('${d}')" class="px-4 py-2.5 rounded-xl font-black text-xs min-w-[58px] text-center transition-all ${activeStyle}">${d}</button>`;
                 });
                 dayTabsHtml += `</div>`;
@@ -286,69 +371,54 @@
                         <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3 ${ex.completed ? 'bg-slate-50 opacity-65' : ''}">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="flex-1 min-w-0" onclick="toggleExerciseExpand(${idx})">
-                                    <input type="text" value="${ex.name}" onchange="modifyWorkoutItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-blue-400 ${ex.completed ? 'line-through opacity-50' : ''}">
-                                    <input type="text" value="${ex.detail}" onchange="modifyWorkoutItem(${idx}, 'detail', this.value)" class="bg-transparent font-medium text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-blue-400 mt-0.5">
+                                    <input type="text" value="${ex.name}" onchange="modifyWorkoutItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none ${ex.completed ? 'line-through opacity-50' : ''}">
+                                    <input type="text" value="${ex.detail}" onchange="modifyWorkoutItem(${idx}, 'detail', this.value)" class="bg-transparent font-medium text-xs text-slate-500 w-full focus:outline-none mt-0.5">
                                 </div>
                                 <div class="flex items-center gap-1.5 flex-shrink-0">
                                     <button onclick="toggleExerciseExpand(${idx})" class="p-2 rounded-xl text-slate-400 hover:bg-slate-50">
                                         <i data-lucide="${ex.expanded ? 'chevron-up' : 'chevron-down'}" class="w-5 h-5"></i>
                                     </button>
-                                    <button onclick="toggleWorkout(${idx})" class="p-2.5 rounded-xl border transition-all ${ex.completed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-200 active:scale-90'}">
+                                    <button onclick="toggleWorkout(${idx})" class="p-2.5 rounded-xl border transition-all ${ex.completed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-200'}">
                                         <i data-lucide="${ex.completed ? 'check-square' : 'square'}" class="w-5 h-5"></i>
                                     </button>
                                 </div>
                             </div>
-
-                            <!-- Expandable Block Containing Movement GIF Data -->
                             <div class="${ex.expanded ? 'block' : 'hidden'} space-y-3 pt-2 border-t border-slate-100 animate-fadeIn">
-                                <div class="space-y-1">
-                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Reference Motion GIF Link</label>
-                                    <input type="text" value="${ex.gifUrl || ''}" placeholder="Paste clean .gif image URL..." onchange="modifyWorkoutItem(${idx}, 'gifUrl', this.value); refreshActiveGymView();" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 font-mono">
-                                </div>
-                                ${ex.gifUrl ? `
-                                    <div class="relative w-full h-44 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200">
-                                        <img src="${ex.gifUrl}" alt="Move Animation" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/400x250?text=Invalid+GIF+URL';">
-                                    </div>
-                                ` : `
-                                    <div class="p-4 border-2 border-dashed border-slate-200 text-center rounded-xl text-slate-400 text-xs font-bold">
-                                        No demo image loaded. Paste a .gif address chain link above to visualize form!
-                                    </div>
-                                `}
-                                <div class="text-right">
-                                    <button onclick="deleteWorkoutItem(${idx})" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">Remove Move</button>
-                                </div>
+                                <input type="text" value="${ex.gifUrl || ''}" placeholder="Paste clean .gif link..." onchange="modifyWorkoutItem(${idx}, 'gifUrl', this.value); refreshActiveGymView();" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none font-mono">
+                                ${ex.gifUrl ? `<div class="relative w-full h-44 bg-slate-100 rounded-xl overflow-hidden"><img src="${ex.gifUrl}" class="w-full h-full object-cover"></div>` : ''}
+                                <div class="text-right"><button onclick="deleteWorkoutItem(${idx})" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">Remove Move</button></div>
                             </div>
                         </div>`;
                 });
-
-                body.innerHTML = `
-                    ${dayTabsHtml}
-                    <div class="space-y-3 mt-2">${list || '<p class="text-slate-400 text-center py-6 text-sm font-bold">Rest day! No movements assigned.</p>'}</div>
-                    <div class="pt-2 flex gap-2">
-                        <button onclick="addNewWorkoutRow()" class="flex-1 bg-blue-50 text-blue-700 font-bold py-3.5 rounded-xl border border-blue-200 text-sm active:scale-95 transition-all">Add Workout Move</button>
-                        <button onclick="resetWorkouts()" class="bg-slate-100 text-slate-600 font-bold py-3.5 px-4 rounded-xl text-sm active:scale-95 transition-all">Clear Day</button>
-                    </div>`;
+                body.innerHTML = `${dayTabsHtml}<div class="space-y-3 mt-2">${list || '<p class="text-slate-400 text-center py-6 text-sm font-bold">Rest day!</p>'}</div>
+                    <div class="pt-2 flex gap-2"><button onclick="addNewWorkoutRow()" class="flex-1 bg-blue-50 text-blue-700 font-bold py-3.5 rounded-xl border border-blue-200 text-sm active:scale-95 transition-all">Add Workout Move</button></div>`;
             } 
             else if (feature === 'meds') {
                 title.innerText = "Medical Schedule Logs";
                 let list = "";
                 state.medications.forEach((med, idx) => {
                     list += `
-                        <div class="flex items-center justify-between p-4 ${med.taken ? 'bg-slate-100 opacity-60' : 'bg-red-50/50'} rounded-2xl border border-slate-100">
-                            <div class="flex-1 mr-2">
-                                <input type="text" value="${med.name}" onchange="modifyMedicationItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-lg text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-red-400 ${med.taken ? 'line-through opacity-50' : ''}">
-                                <input type="text" value="${med.time}" onchange="modifyMedicationItem(${idx}, 'time', this.value)" class="bg-transparent font-bold text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-red-400 mt-0.5">
+                        <div class="p-4 ${med.taken ? 'bg-slate-100 opacity-60' : 'bg-red-50/50'} rounded-2xl border border-slate-100 space-y-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex-1">
+                                    <input type="text" value="${med.name}" onchange="modifyMedicationItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-lg text-slate-900 w-full focus:outline-none ${med.taken ? 'line-through opacity-50' : ''}">
+                                </div>
+                                <button onclick="toggleMed(${idx})" class="font-black text-xs px-4 py-2.5 rounded-xl border transition-all ${med.taken ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-red-600 border-red-200'}">
+                                    ${med.taken ? 'TAKEN' : 'MARK DUE'}
+                                </button>
                             </div>
-                            <button onclick="toggleMed(${idx})" class="font-black text-xs px-4 py-2.5 rounded-xl border transition-all ${med.taken ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-red-600 border-red-200 active:scale-90'}">
-                                ${med.taken ? 'TAKEN' : 'MARK DUE'}
-                            </button>
+                            <div class="flex items-center gap-2 pt-2 border-t border-slate-200/40">
+                                <span class="text-xs font-black text-red-500 flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5"></i> ALARM:</span>
+                                <input type="time" value="${med.alarmTime || '08:00'}" onchange="modifyMedicationItem(${idx}, 'alarmTime', this.value)" class="bg-white border rounded-lg p-1 text-xs font-black text-slate-700 focus:outline-none">
+                            </div>
                         </div>`;
                 });
                 body.innerHTML = `
+                    <div class="p-3 bg-amber-50 text-amber-900 text-xs font-bold rounded-xl mb-2">💡 Ensure the bell icon on the top right dashboard is active to enable background alarm tones!</div>
                     <div class="space-y-3">${list}</div>
                     <div class="pt-4 flex gap-2">
-                        <button onclick="addNewMedicationRow()" class="flex-1 bg-red-50 text-red-700 font-bold py-3 rounded-xl border border-red-200 text-sm active:scale-95 transition-all">Add Medicine</button>
-                        <button onclick="resetMeds()" class="bg-slate-100 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm active:scale-95 transition-all">Reset All</button>
+                        <button onclick="addNewMedicationRow()" class="flex-1 bg-red-50 text-red-700 font-bold py-3 rounded-xl border border-red-200 text-sm active:scale-95 transition-all">Add Medicine Alarm</button>
+                        <button onclick="deleteMedicationItem()" class="text-xs font-bold text-red-500 bg-red-50 px-3 rounded-xl">Remove Last</button>
                     </div>`;
             } 
             else if (feature === 'recipes') {
@@ -366,19 +436,27 @@
                 let list = "";
                 state.appointments.forEach((appt, idx) => {
                     list += `
-                        <div class="flex items-start justify-between p-4 ${appt.done ? 'bg-slate-100 opacity-60' : 'bg-purple-50'} rounded-2xl border border-purple-100">
-                            <div class="flex-1 mr-2 border-l-4 border-purple-500 pl-3">
-                                <input type="text" value="${appt.title}" onchange="modifyAppointmentItem(${idx}, 'title', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none ${appt.done ? 'line-through text-slate-400' : ''}">
-                                <input type="text" value="${appt.schedule}" onchange="modifyAppointmentItem(${idx}, 'schedule', this.value)" class="bg-transparent font-black text-xs text-purple-700 w-full focus:outline-none mt-0.5">
+                        <div class="p-4 ${appt.done ? 'bg-slate-100 opacity-60' : 'bg-purple-50'} rounded-2xl border border-purple-100 space-y-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 border-l-4 border-purple-500 pl-3">
+                                    <input type="text" value="${appt.title}" onchange="modifyAppointmentItem(${idx}, 'title', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none ${appt.done ? 'line-through text-slate-400' : ''}">
+                                </div>
+                                <button onclick="toggleAppointment(${idx})" class="p-2 bg-white rounded-lg border border-purple-200 text-purple-700">
+                                    <i data-lucide="${appt.done ? 'check-circle' : 'circle'}" class="w-5 h-5"></i>
+                                </button>
                             </div>
-                            <button onclick="toggleAppointment(${idx})" class="p-2 bg-white rounded-lg border border-purple-200 text-purple-700 active:scale-90 transition-transform">
-                                <i data-lucide="${appt.done ? 'check-circle' : 'circle'}" class="w-5 h-5"></i>
-                            </button>
+                            <div class="flex flex-col gap-1 pt-2 border-t border-purple-200/40">
+                                <span class="text-[10px] font-black text-purple-600 uppercase tracking-wider">Set Exact Notification Date & Time:</span>
+                                <input type="datetime-local" value="${appt.alarmDateTime || ''}" onchange="modifyAppointmentItem(${idx}, 'alarmDateTime', this.value)" class="w-full bg-white border rounded-xl p-2 text-xs font-bold text-slate-700 focus:outline-none">
+                            </div>
                         </div>`;
                 });
                 body.innerHTML = `
-                    <div class="space-y-3">${list || '<p class="text-slate-400 text-center py-4">No data tracks.</p>'}</div>
-                    <button onclick="addNewAppointmentRow()" class="w-full bg-purple-50 text-purple-700 font-bold py-3 rounded-xl border border-purple-200 text-sm active:scale-95 transition-all mt-2">Create New Event Reminder</button>`;
+                    <div class="space-y-3">${list || '<p class="text-slate-400 text-center py-4">No alarms assigned.</p>'}</div>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="addNewAppointmentRow()" class="flex-1 bg-purple-50 text-purple-700 font-bold py-3 rounded-xl border border-purple-200 text-sm active:scale-95 transition-all">Create New Event Reminder</button>
+                        <button onclick="deleteAppointmentItem()" class="text-xs font-bold text-purple-500 bg-purple-50 px-3 rounded-xl">Remove Last</button>
+                    </div>`;
             } 
             else if (feature === 'grocery') {
                 title.innerText = "Smart Grocery List";
@@ -387,14 +465,12 @@
                     list += `
                         <div class="flex justify-between items-center text-lg font-bold p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <div class="flex items-center gap-2 flex-1">
-                                <input type="text" value="${item.name}" onchange="modifyGroceryItemFields(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-800 focus:outline-none border-b border-transparent focus:border-amber-400 w-1/2">
+                                <input type="text" value="${item.name}" onchange="modifyGroceryItemFields(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-800 focus:outline-none w-1/2">
                                 <input type="number" value="${item.qty || 1}" onchange="modifyGroceryItemFields(${idx}, 'qty', this.value)" class="bg-white px-2 py-0.5 border rounded text-sm w-16 text-center font-bold">
                                 <select onchange="modifyGroceryItemFields(${idx}, 'unit', this.value)" class="bg-white p-0.5 border rounded text-xs font-medium">
                                     <option value="Kg" ${item.unit === 'Kg' ? 'selected' : ''}>Kg</option>
-                                    <option value="Oz" ${item.unit === 'Oz' ? 'selected' : ''}>Oz</option>
                                     <option value="Pcs" ${item.unit === 'Pcs' ? 'selected' : ''}>Pcs</option>
                                     <option value="Grams" ${item.unit === 'Grams' ? 'selected' : ''}>g</option>
-                                    <option value="Liters" ${item.unit === 'Liters' ? 'selected' : ''}>L</option>
                                 </select>
                             </div>
                             <button onclick="deleteGrocery(${idx})" class="text-red-500 font-bold text-base w-8 h-8 rounded-full cursor-pointer hover:bg-red-50">✕</button>
@@ -403,16 +479,14 @@
                 body.innerHTML = `
                     <div class="space-y-2 bg-amber-50/50 p-3 rounded-2xl border border-amber-100">
                         <div class="flex gap-2">
-                            <input type="text" id="g-input" placeholder="Item Name..." class="flex-1 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#f59e0b]">
-                            <input type="number" id="g-qty" placeholder="Qty" value="1" class="w-16 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl text-center font-bold focus:outline-none focus:border-[#f59e0b]">
+                            <input type="text" id="g-input" placeholder="Item Name..." class="flex-1 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none">
+                            <input type="number" id="g-qty" placeholder="Qty" value="1" class="w-16 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl text-center font-bold">
                         </div>
                         <div class="flex gap-2">
                             <select id="g-unit" class="flex-1 text-sm p-2.5 bg-white border-2 border-slate-200 rounded-xl focus:outline-none font-bold">
                                 <option value="Kg">Kilograms (Kg)</option>
-                                <option value="Oz">Ounces (Oz)</option>
                                 <option value="Pcs">Pieces (Pcs)</option>
                                 <option value="Grams">Grams (g)</option>
-                                <option value="Liters">Liters (L)</option>
                             </select>
                             <button onclick="addGroceryItem()" class="bg-[#f59e0b] text-white px-6 py-2.5 font-black rounded-xl active:scale-95 transition-transform cursor-pointer">ADD ITEM</button>
                         </div>
@@ -426,35 +500,24 @@
                     list += `
                         <div class="flex justify-between items-center text-base font-bold p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <div class="flex-1 mr-2 grid grid-cols-2 gap-2">
-                                <input type="text" value="${exp.desc}" onchange="modifyExpenseFields(${idx}, 'desc', this.value)" class="bg-transparent text-sm text-slate-600 font-bold focus:outline-none border-b border-transparent focus:border-sky-400">
-                                <input type="number" value="${exp.amount}" onchange="modifyExpenseFields(${idx}, 'amount', this.value)" class="bg-transparent text-sm text-slate-900 font-black text-right focus:outline-none border-b border-transparent focus:border-sky-400">
+                                <input type="text" value="${exp.desc}" onchange="modifyExpenseFields(${idx}, 'desc', this.value)" class="bg-transparent text-sm text-slate-600 font-bold focus:outline-none">
+                                <input type="number" value="${exp.amount}" onchange="modifyExpenseFields(${idx}, 'amount', this.value)" class="bg-transparent text-sm text-slate-900 font-black text-right focus:outline-none">
                             </div>
                             <button onclick="deleteExpense(${idx})" class="text-slate-400 hover:text-red-500 font-bold pl-2">✕</button>
                         </div>`;
                 });
                 body.innerHTML = `
                     <div class="grid grid-cols-2 gap-2 bg-sky-50 p-3 rounded-2xl border border-sky-100">
-                        <input type="text" id="e-desc" placeholder="Description..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0ea5e9]">
-                        <input type="number" id="e-amt" placeholder="Amount (₱)..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0ea5e9]" onkeydown="if(event.key==='Enter') addExpenseItem()">
+                        <input type="text" id="e-desc" placeholder="Description..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none">
+                        <input type="number" id="e-amt" placeholder="Amount (₱)..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none" onkeydown="if(event.key==='Enter') addExpenseItem()">
                     </div>
                     <button onclick="addExpenseItem()" class="w-full bg-[#0ea5e9] text-white py-3 font-black rounded-xl mt-2 active:scale-95 transition-transform cursor-pointer">ADD LEDGER RECORD</button>
                     <div class="space-y-2 mt-3 max-h-48 overflow-y-auto">${list || '<p class="text-slate-400 text-center py-4">No records saved</p>'}</div>`;
             }
-            else if (feature === 'notifications') {
-                title.innerText = "Notifications Hub";
-                body.innerHTML = `
-                    <div class="space-y-2">
-                        <div class="p-3 bg-red-50 text-red-900 font-bold rounded-xl text-sm">⚠️ Medication Reminder: Check layout logs.</div>
-                        <div class="p-3 bg-blue-50 text-blue-900 font-bold rounded-xl text-sm">💧 Water Target Check: Hydrate evenly today.</div>
-                    </div>`;
-                document.getElementById('notif-badge').classList.add('hidden');
-            }
             lucide.createIcons();
         }
 
-        function closeModal() {
-            document.getElementById('app-modal').classList.add('hidden');
-        }
+        function closeModal() { document.getElementById('app-modal').classList.add('hidden'); }
 
         function saveSettingsForm() {
             state.profile.name = document.getElementById('set-name').value.trim() || "User";
@@ -465,213 +528,92 @@
             closeModal();
         }
 
-        // WEEKLY DYNAMIC WORKOUT GRID INTERACTION CODES
-        function switchWorkoutDay(dayString) {
-            state.currentWorkoutDay = dayString;
-            saveState();
-            openModal('gym');
-        }
+        // FEATURE INTEGRATION METHODS
+        function switchWorkoutDay(dayString) { state.currentWorkoutDay = dayString; saveState(); openModal('gym'); }
+        function toggleExerciseExpand(idx) { state.weeklyWorkouts[state.currentWorkoutDay][idx].expanded = !state.weeklyWorkouts[state.currentWorkoutDay][idx].expanded; saveState(); openModal('gym'); }
+        function toggleWorkout(idx) { state.weeklyWorkouts[state.currentWorkoutDay][idx].completed = !state.weeklyWorkouts[state.currentWorkoutDay][idx].completed; saveState(); openModal('gym'); }
+        function modifyWorkoutItem(idx, key, val) { state.weeklyWorkouts[state.currentWorkoutDay][idx][key] = val; saveState(); }
+        function addNewWorkoutRow() { state.weeklyWorkouts[state.currentWorkoutDay].push({ id: Date.now(), name: "New Exercise Move", detail: "3 Sets x 12 Reps", gifUrl: "", completed: false, expanded: true }); saveState(); openModal('gym'); }
+        function deleteWorkoutItem(idx) { state.weeklyWorkouts[state.currentWorkoutDay].splice(idx, 1); saveState(); openModal('gym'); }
+        function refreshActiveGymView() { openModal('gym'); }
 
-        function toggleExerciseExpand(idx) {
-            const currentDay = state.currentWorkoutDay;
-            state.weeklyWorkouts[currentDay][idx].expanded = !state.weeklyWorkouts[currentDay][idx].expanded;
-            // Save state but refresh menu UI frame selectively to block cursor stuttering
-            saveState();
-            openModal('gym');
-        }
-
-        function toggleWorkout(idx) { 
-            const currentDay = state.currentWorkoutDay;
-            state.weeklyWorkouts[currentDay][idx].completed = !state.weeklyWorkouts[currentDay][idx].completed; 
-            saveState(); 
-            openModal('gym'); 
-        }
-
-        function modifyWorkoutItem(idx, key, val) { 
-            const currentDay = state.currentWorkoutDay;
-            state.weeklyWorkouts[currentDay][idx][key] = val; 
-            saveState(); 
-        }
-
-        function addNewWorkoutRow() { 
-            const currentDay = state.currentWorkoutDay;
-            if (!state.weeklyWorkouts[currentDay]) state.weeklyWorkouts[currentDay] = [];
-            
-            state.weeklyWorkouts[currentDay].push({ 
-                id: Date.now(), 
-                name: "New Exercise Move", 
-                detail: "3 Sets x 12 Reps", 
-                gifUrl: "", 
-                completed: false, 
-                expanded: true 
-            }); 
-            saveState(); 
-            openModal('gym'); 
-        }
-
-        function deleteWorkoutItem(idx) {
-            const currentDay = state.currentWorkoutDay;
-            state.weeklyWorkouts[currentDay].splice(idx, 1);
-            saveState();
-            openModal('gym');
-        }
-
-        function resetWorkouts() { 
-            const currentDay = state.currentWorkoutDay;
-            state.weeklyWorkouts[currentDay] = []; 
-            saveState(); 
-            openModal('gym'); 
-        }
-        
-        function refreshActiveGymView() {
-            openModal('gym');
-        }
-
-        // MEDICATION FUNCTIONS
+        // MEDICATION CONTROLS
         function toggleMed(idx) { state.medications[idx].taken = !state.medications[idx].taken; saveState(); openModal('meds'); }
-        function modifyMedicationItem(idx, key, val) { state.medications[idx][key] = val; saveState(); }
-        function addNewMedicationRow() { state.medications.push({ id: Date.now(), name: "New Med Entry", time: "12:00 PM", taken: false }); saveState(); openModal('meds'); }
-        function resetMeds() { state.medications = [{ id: 1, name: "Daily Multivitamin", time: "8:00 AM", taken: false }]; saveState(); openModal('meds'); }
+        function modifyMedicationItem(idx, key, val) { 
+            state.medications[idx][key] = val; 
+            if(key === 'alarmTime') state.medications[idx].triggeredToday = false; // Reset trigger state when user updates alarm times
+            saveState(); 
+        }
+        function addNewMedicationRow() { state.medications.push({ id: Date.now(), name: "New Med Entry", alarmTime: "12:00", taken: false, triggeredToday: false }); saveState(); openModal('meds'); }
+        function deleteMedicationItem() { state.medications.pop(); saveState(); openModal('meds'); }
 
-        // APPOINTMENT REMINDER FUNCTIONS
+        // APPOINTMENT CONTROLS
         function toggleAppointment(idx) { state.appointments[idx].done = !state.appointments[idx].done; saveState(); openModal('appointments'); }
-        function modifyAppointmentItem(idx, key, val) { state.appointments[idx][key] = val; saveState(); }
-        function addNewAppointmentRow() { state.appointments.push({ id: Date.now(), title: "Click to change title", schedule: "Set Date/Time", done: false }); saveState(); openModal('appointments'); }
+        function modifyAppointmentItem(idx, key, val) { 
+            state.appointments[idx][key] = val; 
+            if(key === 'alarmDateTime') state.appointments[idx].triggered = false; // Reset lock state when time shifts
+            saveState(); 
+        }
+        function addNewAppointmentRow() { state.appointments.push({ id: Date.now(), title: "New Appointment Description", alarmDateTime: "", done: false, triggered: false }); saveState(); openModal('appointments'); }
+        function deleteAppointmentItem() { state.appointments.pop(); saveState(); openModal('appointments'); }
 
-        // SMART GROCERY SYSTEM WITH DYNAMIC UNITS FIELD DROP-DOWN
+        // GROCERY & LEDGERS
         function addGroceryItem() {
-            const input = document.getElementById('g-input');
-            const qtyInput = document.getElementById('g-qty');
-            const unitSelect = document.getElementById('g-unit');
+            const input = document.getElementById('g-input'); const qtyInput = document.getElementById('g-qty'); const unitSelect = document.getElementById('g-unit');
             if(!input || !input.value.trim()) return;
-            
-            state.groceries.push({ 
-                name: input.value.trim(),
-                qty: parseInt(qtyInput.value) || 1,
-                unit: unitSelect.value
-            });
-            saveState();
-            openModal('grocery');
+            state.groceries.push({ name: input.value.trim(), qty: parseInt(qtyInput.value) || 1, unit: unitSelect.value });
+            saveState(); openModal('grocery');
         }
-        function modifyGroceryItemFields(idx, key, val) {
-            state.groceries[idx][key] = key === 'qty' ? parseInt(val) || 1 : val;
-            saveState();
-        }
+        function modifyGroceryItemFields(idx, key, val) { state.groceries[idx][key] = key === 'qty' ? parseInt(val) || 1 : val; saveState(); }
         function deleteGrocery(idx) { state.groceries.splice(idx, 1); saveState(); openModal('grocery'); }
 
-        // EXPENSE TRACKING MATRIX
         function addExpenseItem() {
-            const desc = document.getElementById('e-desc');
-            const amt = document.getElementById('e-amt');
+            const desc = document.getElementById('e-desc'); const amt = document.getElementById('e-amt');
             if(!desc || !amt || !desc.value.trim() || !amt.value) return;
             state.expenses.push({ desc: desc.value.trim(), amount: parseFloat(amt.value) || 0 });
-            saveState();
-            openModal('expense');
+            saveState(); openModal('expense');
         }
-        function modifyExpenseFields(idx, key, val) {
-            state.expenses[idx][key] = key === 'amount' ? parseFloat(val) || 0 : val;
-            saveState();
-        }
+        function modifyExpenseFields(idx, key, val) { state.expenses[idx][key] = key === 'amount' ? parseFloat(val) || 0 : val; saveState(); }
         function deleteExpense(idx) { state.expenses.splice(idx, 1); saveState(); openModal('expense'); }
 
-        function clearAllAppData() {
-            if(confirm("Reset storage metrics data cache?")) {
-                localStorage.removeItem("synergy360_state");
-                window.location.reload();
-            }
-        }
+        function clearAllAppData() { if(confirm("Reset storage data cache?")) { localStorage.removeItem("synergy360_state"); window.location.reload(); } }
 
-        // HIGH FIDELITY RECIPE GENERATOR WITH INGREDIENTS & MEASUREMENTS
         function generateHighFidelityRecipe() {
             const ingredientsInput = document.getElementById('recipe-input').value.trim();
             if (!ingredientsInput) return alert("Specify ingredients first!");
-            
             const out = document.getElementById('ai-output');
-            out.innerHTML = `<div class="text-center py-4"><div class="animate-spin inline-block w-6 h-6 border-4 border-[#32b053] border-t-transparent rounded-full mb-2"></div><p class="text-slate-500 font-bold text-sm">Structuring menu alternatives...</p></div>`;
-            
+            out.innerHTML = `<div class="text-center py-4"><div class="animate-spin inline-block w-6 h-6 border-4 border-[#32b053] border-t-transparent rounded-full mb-2"></div></div>`;
             setTimeout(() => {
                 const queryClean = ingredientsInput.toLowerCase();
-                let recipeTitle = "Low-Carb Gourmet Stir Sauté";
-                let kcal = 290, pro = 22, carbs = 5;
-                
-                let components = [
-                    { name: "Input Choice Protein", measure: "200g" },
-                    { name: "Olive Oil / Butter", measure: "1 tbsp" },
-                    { name: "Mixed Green Vegetables", measure: "1 cup" },
-                    { name: "Salt & Sugar-Free Spices", measure: "To taste" }
-                ];
-                let steps = ["Prepare and wash ingredients cleanly.", "Heat pan over medium with olive oil or butter.", "Sauté protein components safely for 6-8 mins.", "Toss greens, season with sugar-free spices, and serve hot."];
+                let recipeTitle = "Low-Carb Gourmet Stir Sauté", kcal = 290, pro = 22, carbs = 5;
+                let components = [{ name: "Input Choice Protein", measure: "200g" }, { name: "Olive Oil / Butter", measure: "1 tbsp" }];
+                let steps = ["Prepare and wash ingredients cleanly.", "Sauté protein components safely for 6-8 mins."];
 
-                // Check for explicit combination profiles
                 if (queryClean.includes("chicken") && queryClean.includes("mushroom")) {
-                    recipeTitle = "Low-Carb Chicken & Mushroom Pastil Style";
-                    kcal = 320; pro = 34; carbs = 3;
-                    components = [
-                        { name: "Chicken Breast Fillet", measure: "250g" },
-                        { name: "Fresh Oyster Mushroom Chunks", measure: "100g" },
-                        { name: "Coconut Oil", measure: "1.5 tbsp" },
-                        { name: "Garlic (Minced)", measure: "3 cloves" },
-                        { name: "Sugar-Free Liquid Aminos", measure: "2 tbsp" }
-                    ];
-                    steps = [
-                        "Boil chicken breast fillet, then shred completely into thin strips.",
-                        "Finely clean and chop fresh mushroom chunks into uniform pieces.",
-                        "Heat coconut oil in a non-stick pan over medium heat; sauté garlic until aromatic.",
-                        "Toss in shredded chicken and mushroom chunks, stirring frequently.",
-                        "Pour in the sugar-free liquid aminos, reduce heat, and simmer until completely dry and slightly flaky."
-                    ];
-                } else if (queryClean.includes("chicken")) {
-                    recipeTitle = "Savory Shredded Chicken Adobo Sauté";
-                    kcal = 340; pro = 31; carbs = 2;
-                    components = [
-                        { name: "Chicken Breast Cuts", measure: "250g" },
-                        { name: "White Vinegar", measure: "2 tbsp" },
-                        { name: "Soy Sauce / Coconut Aminos", measure: "3 tbsp" },
-                        { name: "Garlic Crushed", measure: "4 cloves" },
-                        { name: "Whole Peppercorns & Bay Leaf", measure: "1 tsp / 2 pcs" }
-                    ];
-                    steps = [
-                        "Slice chicken breast into uniform bite-sized pieces.",
-                        "Marinate chicken in soy sauce, white vinegar, crushed garlic, and peppercorns for 15 minutes.",
-                        "Heat pan over medium-high heat, sear chicken pieces until edges turn golden crisp.",
-                        "Pour in remaining marinade mix, add bay leaves, cover and simmer until liquid is beautifully reduced."
-                    ];
+                    recipeTitle = "Low-Carb Chicken & Mushroom Pastil Style"; kcal = 320; pro = 34; carbs = 3;
+                    components = [{ name: "Chicken Breast Fillet", measure: "250g" }, { name: "Fresh Oyster Mushroom Chunks", measure: "100g" }, { name: "Coconut Oil", measure: "1.5 tbsp" }];
+                    steps = ["Boil chicken breast fillet, then shred completely into thin strips.", "Finely clean and chop fresh mushroom chunks.", "Sauté chicken and mushroom chunks until flaky and dry."];
                 }
-
                 currentRecipeOutputHtml = `
                     <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-4 text-left animate-fadeIn">
-                        <div>
-                            <h4 class="font-black text-slate-900 text-lg">${recipeTitle}</h4>
-                            <div class="grid grid-cols-3 gap-2 text-center text-xs font-black mt-1.5">
-                                <div class="bg-emerald-50 text-emerald-800 p-2 rounded-xl">🔥 ${kcal} kcal</div>
-                                <div class="bg-blue-50 text-blue-800 p-2 rounded-xl">💪 ${pro}g Pro</div>
-                                <div class="bg-amber-50 text-amber-800 p-2 rounded-xl">🥗 ${carbs}g Carb</div>
-                            </div>
+                        <h4 class="font-black text-slate-900 text-lg">${recipeTitle}</h4>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs font-black mt-1.5">
+                            <div class="bg-emerald-50 text-emerald-800 p-2 rounded-xl">🔥 ${kcal} kcal</div>
+                            <div class="bg-blue-50 text-blue-800 p-2 rounded-xl">💪 ${pro}g Pro</div>
+                            <div class="bg-amber-50 text-amber-800 p-2 rounded-xl">🥗 ${carbs}g Carb</div>
                         </div>
-
-                        <!-- Ingredients & Measurements Block -->
-                        <div>
-                            <p class="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">📋 Ingredients & Measures</p>
-                            <div class="grid grid-cols-1 gap-1.5 bg-white p-3 rounded-xl border border-slate-100">
-                                ${components.map(c => `
-                                    <div class="flex justify-between items-center text-xs font-bold">
-                                        <span class="text-slate-700">🔹 ${c.name}</span>
-                                        <span class="text-[#32b053] font-black bg-emerald-50 px-2 py-0.5 rounded-md">${c.measure}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
+                        <div class="grid grid-cols-1 gap-1.5 bg-white p-3 rounded-xl border border-slate-100">
+                            ${components.map(c => `<div class="flex justify-between items-center text-xs font-bold"><span class="text-slate-700">🔹 ${c.name}</span><span class="text-[#32b053] font-black bg-emerald-50 px-2 py-0.5 rounded-md">${c.measure}</span></div>`).join('')}
                         </div>
-
-                        <!-- Instructions Block -->
-                        <div>
-                            <p class="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">🍳 Instructions</p>
-                            <ol class="text-xs text-slate-700 font-medium list-decimal pl-4 space-y-1.5">
-                                ${steps.map(s => `<li>${s}</li>`).join('')}
-                            </ol>
-                        </div>
+                        <ol class="text-xs text-slate-700 font-medium list-decimal pl-4 space-y-1.5">${steps.map(s => `<li>${s}</li>`).join('')}</ol>
                     </div>`;
                 out.innerHTML = currentRecipeOutputHtml;
             }, 800);
+        }
+
+        // Check if browser permission was already authorized previously to update style rules on load
+        if (Notification.permission === "granted") {
+            document.getElementById('bell-btn').classList.add('bg-emerald-50', 'text-emerald-600', 'border-emerald-200');
         }
 
         // INITIAL ENGINE INITIALIZATION
