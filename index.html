@@ -18,6 +18,9 @@
         .animate-fadeIn {
             animation: fadeIn 0.25s ease-out forwards;
         }
+        /* Custom scrollbar handling for beautiful compact mobile view */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-[#f4f7f6] text-slate-900 min-h-screen pb-8 select-none">
@@ -70,7 +73,7 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-black tracking-tight leading-snug">Gym Workout</h3>
-                    <p id="gym-summary" class="text-sm font-bold opacity-90 mt-0.5">0/3 Completed</p>
+                    <p id="gym-summary" class="text-sm font-bold opacity-90 mt-0.5">0 Completed</p>
                 </div>
             </button>
 
@@ -148,11 +151,17 @@
         let state = {
             profile: { name: "Queen Anne", health: "Nearsighted (-4.00)", waterGoal: 2500 },
             waterLog: 0,
-            workouts: [
-                { id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", completed: false },
-                { id: 2, name: "Dumbbell Bench Press", detail: "3 Sets x 12 Reps", completed: false },
-                { id: 3, name: "Seated Cable Rows", detail: "3 Sets x 10 Reps", completed: false }
-            ],
+            currentWorkoutDay: "Mon",
+            // Restructured into weekly mapping track arrays
+            weeklyWorkouts: {
+                "Mon": [{ id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6ZnN5MHVnbG9wOHM2OHR3M2t5dmM0N29kMmd5OHJvYmIxeXp6dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/UTX8UTK973AsbpasN5/giphy.gif", completed: false, expanded: false }],
+                "Tue": [{ id: 2, name: "Dumbbell Bench Press", detail: "3 Sets x 12 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3Y5amx4dzFwZzgzMGpxcnVvZHJvMnY3czkwb2kycGw0Z3AwYWVnMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/hSojCAdPFFp9X67b84/giphy.gif", completed: false, expanded: false }],
+                "Wed": [{ id: 3, name: "Seated Cable Rows", detail: "3 Sets x 10 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExdm9hOTJ4ajF1YXd2azBwd2ZlbHZsZnkwdDF1MGUwZXNkaDlsZjRxbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/27E78SgH7bJkS85fAL/giphy.gif", completed: false, expanded: false }],
+                "Thu": [{ id: 4, name: "Plank Hold", detail: "3 Sets x 45 Secs", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNmNtbXRkMnU4eHJ4YTF5Yjd5NzRkcXkwdmswMXlsYms4azZtdHhrNSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKu6WJmCO8LoUBG/giphy.gif", completed: false, expanded: false }],
+                "Fri": [{ id: 5, name: "Dumbbell Bicep Curls", detail: "3 Sets x 12 Reps", gifUrl: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMnk3YmU0MGZidjB3cHppNjM0YzhmOHk3YWxkbml6NmI2MXRkMHVkbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/vncGd2LI2lWM0/giphy.gif", completed: false, expanded: false }],
+                "Sat": [],
+                "Sun": []
+            },
             medications: [
                 { id: 1, name: "Daily Multivitamin", time: "8:00 AM", taken: false },
                 { id: 2, name: "Omega-3 Fish Oil", time: "12:30 PM", taken: false }
@@ -167,10 +176,17 @@
         let currentRecipeInput = "";
         let currentRecipeOutputHtml = "";
 
-        // Attempt clean storage load
+        // Attempt clean storage load and backwards compatibility check
         if (localStorage.getItem("synergy360_state")) {
             try {
-                state = JSON.parse(localStorage.getItem("synergy360_state"));
+                const loadedState = JSON.parse(localStorage.getItem("synergy360_state"));
+                if (loadedState.weeklyWorkouts) {
+                    state = loadedState;
+                } else {
+                    // Port older structures over dynamically
+                    state = Object.assign({}, state, loadedState);
+                    state.weeklyWorkouts = { "Mon": loadedState.workouts || state.weeklyWorkouts.Mon, "Tue": [], "Wed": [], "Thu": [], "Fri": [], "Sat": [], "Sun": [] };
+                }
             } catch(e) {
                 console.error("State parsing error", e);
             }
@@ -201,8 +217,10 @@
         function updateDashboardCounters() {
             document.getElementById('header-name').innerText = (state.profile.name || "User").toUpperCase();
             
-            const completedWorkouts = state.workouts.filter(w => w.completed).length;
-            document.getElementById('gym-summary').innerText = `${completedWorkouts}/${state.workouts.length} Completed`;
+            // Show total actions pending for the globally active daily profile track
+            const currentDayList = state.weeklyWorkouts[state.currentWorkoutDay] || [];
+            const completedCount = currentDayList.filter(w => w.completed).length;
+            document.getElementById('gym-summary').innerText = `${state.currentWorkoutDay}: ${completedCount}/${currentDayList.length} Done`;
             
             const pendingMeds = state.medications.filter(m => !m.taken).length;
             document.getElementById('meds-summary').innerText = pendingMeds === 0 ? "All Taken Today" : `${pendingMeds} Pending`;
@@ -247,25 +265,68 @@
                     </div>`;
             } 
             else if (feature === 'gym') {
-                title.innerText = "Gym Workout Matrix";
+                title.innerText = "Gym Workout Schedule";
+                
+                // Formulate the day selector buttons element loop
+                const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+                let dayTabsHtml = `<div class="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar">`;
+                days.forEach(d => {
+                    const activeStyle = state.currentWorkoutDay === d 
+                        ? 'bg-blue-500 text-white shadow-sm' 
+                        : 'bg-slate-100 text-slate-600';
+                    dayTabsHtml += `<button onclick="switchWorkoutDay('${d}')" class="px-4 py-2.5 rounded-xl font-black text-xs min-w-[58px] text-center transition-all ${activeStyle}">${d}</button>`;
+                });
+                dayTabsHtml += `</div>`;
+
                 let list = "";
-                state.workouts.forEach((ex, idx) => {
+                const activeList = state.weeklyWorkouts[state.currentWorkoutDay] || [];
+                
+                activeList.forEach((ex, idx) => {
                     list += `
-                        <div class="flex items-center justify-between p-4 ${ex.completed ? 'bg-slate-100 text-slate-400' : 'bg-blue-50/50'} rounded-2xl border border-slate-100">
-                            <div class="flex-1 mr-2">
-                                <input type="text" value="${ex.name}" onchange="modifyWorkoutItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-lg text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-blue-400 ${ex.completed ? 'line-through opacity-50' : ''}">
-                                <input type="text" value="${ex.detail}" onchange="modifyWorkoutItem(${idx}, 'detail', this.value)" class="bg-transparent font-medium text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-blue-400 mt-0.5">
+                        <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3 ${ex.completed ? 'bg-slate-50 opacity-65' : ''}">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex-1 min-w-0" onclick="toggleExerciseExpand(${idx})">
+                                    <input type="text" value="${ex.name}" onchange="modifyWorkoutItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-blue-400 ${ex.completed ? 'line-through opacity-50' : ''}">
+                                    <input type="text" value="${ex.detail}" onchange="modifyWorkoutItem(${idx}, 'detail', this.value)" class="bg-transparent font-medium text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-blue-400 mt-0.5">
+                                </div>
+                                <div class="flex items-center gap-1.5 flex-shrink-0">
+                                    <button onclick="toggleExerciseExpand(${idx})" class="p-2 rounded-xl text-slate-400 hover:bg-slate-50">
+                                        <i data-lucide="${ex.expanded ? 'chevron-up' : 'chevron-down'}" class="w-5 h-5"></i>
+                                    </button>
+                                    <button onclick="toggleWorkout(${idx})" class="p-2.5 rounded-xl border transition-all ${ex.completed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-200 active:scale-90'}">
+                                        <i data-lucide="${ex.completed ? 'check-square' : 'square'}" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
                             </div>
-                            <button onclick="toggleWorkout(${idx})" class="p-2.5 rounded-xl border transition-all ${ex.completed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-200 active:scale-90'}">
-                                <i data-lucide="${ex.completed ? 'check-square' : 'square'}" class="w-6 h-6"></i>
-                            </button>
+
+                            <!-- Expandable Block Containing Movement GIF Data -->
+                            <div class="${ex.expanded ? 'block' : 'hidden'} space-y-3 pt-2 border-t border-slate-100 animate-fadeIn">
+                                <div class="space-y-1">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Reference Motion GIF Link</label>
+                                    <input type="text" value="${ex.gifUrl || ''}" placeholder="Paste clean .gif image URL..." onchange="modifyWorkoutItem(${idx}, 'gifUrl', this.value); refreshActiveGymView();" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 font-mono">
+                                </div>
+                                ${ex.gifUrl ? `
+                                    <div class="relative w-full h-44 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200">
+                                        <img src="${ex.gifUrl}" alt="Move Animation" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='https://placehold.co/400x250?text=Invalid+GIF+URL';">
+                                    </div>
+                                ` : `
+                                    <div class="p-4 border-2 border-dashed border-slate-200 text-center rounded-xl text-slate-400 text-xs font-bold">
+                                        No demo image loaded. Paste a .gif address chain link above to visualize form!
+                                    </div>
+                                `}
+                                <div class="text-right">
+                                    <button onclick="deleteWorkoutItem(${idx})" class="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg">Remove Move</button>
+                                </div>
+                            </div>
                         </div>`;
                 });
+
                 body.innerHTML = `
-                    <div class="space-y-3">${list}</div>
-                    <div class="pt-4 flex gap-2">
-                        <button onclick="addNewWorkoutRow()" class="flex-1 bg-blue-50 text-blue-700 font-bold py-3 rounded-xl border border-blue-200 text-sm active:scale-95 transition-all">Add Workout Move</button>
-                        <button onclick="resetWorkouts()" class="bg-slate-100 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm active:scale-95 transition-all">Reset Sync</button>
+                    ${dayTabsHtml}
+                    <div class="space-y-3 mt-2">${list || '<p class="text-slate-400 text-center py-6 text-sm font-bold">Rest day! No movements assigned.</p>'}</div>
+                    <div class="pt-2 flex gap-2">
+                        <button onclick="addNewWorkoutRow()" class="flex-1 bg-blue-50 text-blue-700 font-bold py-3.5 rounded-xl border border-blue-200 text-sm active:scale-95 transition-all">Add Workout Move</button>
+                        <button onclick="resetWorkouts()" class="bg-slate-100 text-slate-600 font-bold py-3.5 px-4 rounded-xl text-sm active:scale-95 transition-all">Clear Day</button>
                     </div>`;
             } 
             else if (feature === 'meds') {
@@ -404,11 +465,67 @@
             closeModal();
         }
 
-        // WORKOUT FUNCTIONS
-        function toggleWorkout(idx) { state.workouts[idx].completed = !state.workouts[idx].completed; saveState(); openModal('gym'); }
-        function modifyWorkoutItem(idx, key, val) { state.workouts[idx][key] = val; saveState(); }
-        function addNewWorkoutRow() { state.workouts.push({ id: Date.now(), name: "New Exercise", detail: "Sets x Reps", completed: false }); saveState(); openModal('gym'); }
-        function resetWorkouts() { state.workouts = [{ id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", completed: false }]; saveState(); openModal('gym'); }
+        // WEEKLY DYNAMIC WORKOUT GRID INTERACTION CODES
+        function switchWorkoutDay(dayString) {
+            state.currentWorkoutDay = dayString;
+            saveState();
+            openModal('gym');
+        }
+
+        function toggleExerciseExpand(idx) {
+            const currentDay = state.currentWorkoutDay;
+            state.weeklyWorkouts[currentDay][idx].expanded = !state.weeklyWorkouts[currentDay][idx].expanded;
+            // Save state but refresh menu UI frame selectively to block cursor stuttering
+            saveState();
+            openModal('gym');
+        }
+
+        function toggleWorkout(idx) { 
+            const currentDay = state.currentWorkoutDay;
+            state.weeklyWorkouts[currentDay][idx].completed = !state.weeklyWorkouts[currentDay][idx].completed; 
+            saveState(); 
+            openModal('gym'); 
+        }
+
+        function modifyWorkoutItem(idx, key, val) { 
+            const currentDay = state.currentWorkoutDay;
+            state.weeklyWorkouts[currentDay][idx][key] = val; 
+            saveState(); 
+        }
+
+        function addNewWorkoutRow() { 
+            const currentDay = state.currentWorkoutDay;
+            if (!state.weeklyWorkouts[currentDay]) state.weeklyWorkouts[currentDay] = [];
+            
+            state.weeklyWorkouts[currentDay].push({ 
+                id: Date.now(), 
+                name: "New Exercise Move", 
+                detail: "3 Sets x 12 Reps", 
+                gifUrl: "", 
+                completed: false, 
+                expanded: true 
+            }); 
+            saveState(); 
+            openModal('gym'); 
+        }
+
+        function deleteWorkoutItem(idx) {
+            const currentDay = state.currentWorkoutDay;
+            state.weeklyWorkouts[currentDay].splice(idx, 1);
+            saveState();
+            openModal('gym');
+        }
+
+        function resetWorkouts() { 
+            const currentDay = state.currentWorkoutDay;
+            state.weeklyWorkouts[currentDay] = []; 
+            saveState(); 
+            openModal('gym'); 
+        }
+        
+        function refreshActiveGymView() {
+            openModal('gym');
+        }
 
         // MEDICATION FUNCTIONS
         function toggleMed(idx) { state.medications[idx].taken = !state.medications[idx].taken; saveState(); openModal('meds'); }
