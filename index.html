@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Synergy360</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-[#f4f7f6] text-slate-900 min-h-screen pb-8 select-none">
+
+    <!-- Header Frame -->
+    <header class="max-w-md mx-auto px-6 pt-8 pb-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">HELLO, <span id="header-name">USER</span>! 👋</h1>
+            <p class="text-xl font-bold text-slate-500 mt-1">Good morning.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openModal('notifications')" class="relative bg-white p-3.5 rounded-full shadow-sm text-slate-700 border border-slate-100 active:scale-95 transition-transform cursor-pointer">
+                <i data-lucide="bell" class="w-6 h-6"></i>
+                <span id="notif-badge" class="absolute top-3 right-3 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-white"></span>
+            </button>
+            <button onclick="openModal('settings')" class="bg-white p-3.5 rounded-full shadow-sm text-slate-700 border border-slate-100 active:scale-95 transition-transform cursor-pointer">
+                <i data-lucide="settings" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Engine -->
+    <main class="max-w-md w-full mx-auto px-5 space-y-5">
+
+        <!-- Water Consumption Panel -->
+        <section class="bg-white rounded-[28px] p-5 border border-slate-100 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="relative w-14 h-14 flex items-center justify-center rounded-full border-4 border-blue-500 bg-blue-50/50">
+                    <i data-lucide="droplet" class="w-6 h-6 text-blue-500 fill-blue-500"></i>
+                </div>
+                <div>
+                    <span class="text-lg font-black text-slate-800 block">Water: <span id="water-stat" class="text-blue-600">0.0L</span> / <span id="water-goal-text">2.5L</span></span>
+                    <div class="w-36 bg-slate-100 h-2.5 rounded-full mt-1.5 overflow-hidden">
+                        <div id="water-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+            <button onclick="addWaterQuick()" class="bg-[#2a75ee] hover:bg-blue-600 text-white font-black px-5 py-3.5 rounded-2xl text-base tracking-wide shadow-sm active:scale-95 transition-all cursor-pointer">
+                LOG WATER
+            </button>
+        </section>
+
+        <!-- Functional App Features Grid -->
+        <section class="grid grid-cols-2 gap-4">
+
+            <!-- Gym Panel -->
+            <button onclick="openModal('gym')" class="bg-[#2b83eb] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="dumbbell" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Gym Workout</h3>
+                    <p id="gym-summary" class="text-sm font-bold opacity-90 mt-0.5">0/3 Completed</p>
+                </div>
+            </button>
+
+            <!-- Meds Panel -->
+            <button onclick="openModal('meds')" class="bg-[#eb3d3d] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="pill" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Medication</h3>
+                    <p id="meds-summary" class="text-sm font-bold opacity-90 mt-0.5">Pending</p>
+                </div>
+            </button>
+
+            <!-- Food Maker Panel -->
+            <button onclick="openModal('recipes')" class="bg-[#32b053] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="utensils-crosses" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Recipes Maker</h3>
+                    <p class="text-sm font-bold opacity-90 mt-0.5">AI Meal Planner</p>
+                </div>
+            </button>
+
+            <!-- Appointments Panel -->
+            <button onclick="openModal('appointments')" class="bg-[#8b5cf6] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="calendar" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Appointments</h3>
+                    <p id="appts-summary" class="text-sm font-bold opacity-90 mt-0.5">No Checklist Items</p>
+                </div>
+            </button>
+
+            <!-- Market Basket Panel -->
+            <button onclick="openModal('grocery')" class="bg-[#f59e0b] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="shopping-cart" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Grocery List</h3>
+                    <p id="grocery-summary" class="text-sm font-bold opacity-90 mt-0.5">0 Items</p>
+                </div>
+            </button>
+
+            <!-- Budget Ledger Panel -->
+            <button onclick="openModal('expense')" class="bg-[#0ea5e9] text-white p-5 rounded-[28px] text-left shadow-sm flex flex-col justify-between h-44 active:scale-95 transition-transform cursor-pointer">
+                <div class="bg-white/15 w-12 h-12 flex items-center justify-center rounded-2xl">
+                    <i data-lucide="calculator" class="w-7 h-7 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black tracking-tight leading-snug">Expense Tracker</h3>
+                    <p id="expense-summary" class="text-sm font-bold opacity-90 mt-0.5">₱0.00 Total</p>
+                </div>
+            </button>
+
+        </section>
+    </main>
+
+    <!-- Overlay App Modal Frame Container -->
+    <div id="app-modal" class="fixed inset-0 bg-black/50 z-50 flex items-end justify-center hidden p-4 animate-fadeIn" onclick="closeModal()">
+        <div id="modal-container" class="bg-white w-full max-w-md rounded-[32px] p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4 sticky top-0 bg-white z-10">
+                <h2 id="modal-title" class="text-2xl font-black text-slate-900">Details</h2>
+                <button onclick="closeModal()" class="bg-slate-100 p-2.5 rounded-full text-slate-500 font-bold text-lg w-10 h-10 flex items-center justify-center active:scale-90 transition-transform cursor-pointer">✕</button>
+            </div>
+            <div id="modal-body" class="space-y-5 select-text"></div>
+        </div>
+    </div>
+
+    <script>
+        // GLOBAL MODIFIABLE STATE MANAGEMENT
+        let state = {
+            profile: { name: "Queen Anne", health: "Nearsighted (-4.00)", waterGoal: 2500 },
+            waterLog: 0,
+            workouts: [
+                { id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", completed: false },
+                { id: 2, name: "Dumbbell Bench Press", detail: "3 Sets x 12 Reps", completed: false },
+                { id: 3, name: "Seated Cable Rows", detail: "3 Sets x 10 Reps", completed: false }
+            ],
+            medications: [
+                { id: 1, name: "Daily Multivitamin", time: "8:00 AM", taken: false },
+                { id: 2, name: "Omega-3 Fish Oil", time: "12:30 PM", taken: false }
+            ],
+            appointments: [
+                { id: 1, title: "Dr. Lee - Wellness Checkup", schedule: "Next Tuesday at 2:00 PM", done: false }
+            ],
+            groceries: [],
+            expenses: []
+        };
+
+        let currentRecipeInput = "";
+        let currentRecipeOutputHtml = "";
+
+        // Attempt clean storage load
+        if (localStorage.getItem("synergy360_state")) {
+            try {
+                state = JSON.parse(localStorage.getItem("synergy360_state"));
+            } catch(e) {
+                console.error("State parsing error", e);
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem("synergy360_state", JSON.stringify(state));
+            updateDashboardCounters();
+        }
+
+        function updateWaterUI() {
+            const liters = (state.waterLog / 1000).toFixed(1);
+            const goalLiters = (state.profile.waterGoal / 1000).toFixed(1);
+            document.getElementById('water-stat').innerText = `${liters}L`;
+            document.getElementById('water-goal-text').innerText = `${goalLiters}L`;
+            
+            const pct = Math.min((state.waterLog / state.profile.waterGoal) * 100, 100);
+            document.getElementById('water-bar').style.width = `${pct}%`;
+        }
+
+        function addWaterQuick() {
+            state.waterLog += 250;
+            if (state.waterLog > state.profile.waterGoal + 2000) state.waterLog = 0;
+            updateWaterUI();
+            saveState();
+        }
+
+        function updateDashboardCounters() {
+            document.getElementById('header-name').innerText = (state.profile.name || "User").toUpperCase();
+            
+            const completedWorkouts = state.workouts.filter(w => w.completed).length;
+            document.getElementById('gym-summary').innerText = `${completedWorkouts}/${state.workouts.length} Completed`;
+            
+            const pendingMeds = state.medications.filter(m => !m.taken).length;
+            document.getElementById('meds-summary').innerText = pendingMeds === 0 ? "All Taken Today" : `${pendingMeds} Pending`;
+            
+            const openAppts = state.appointments.filter(a => !a.done).length;
+            document.getElementById('appts-summary').innerText = openAppts === 0 ? "All Cleared" : `${openAppts} Upcoming`;
+
+            document.getElementById('grocery-summary').innerText = `${state.groceries.length} Items`;
+            
+            const totalExpense = state.expenses.reduce((sum, item) => sum + item.amount, 0);
+            document.getElementById('expense-summary').innerText = `₱${totalExpense.toFixed(2)} Total`;
+        }
+
+        // UNIVERSAL INTERACTIVE MODAL COMPILATION ENGINE
+        function openModal(feature) {
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            const overlay = document.getElementById('app-modal');
+            
+            overlay.classList.remove('hidden');
+            
+            if (feature === 'settings') {
+                title.innerText = "Settings & Profile";
+                body.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="block text-lg font-black text-slate-800">Full Name</label>
+                            <input type="text" id="set-name" value="${state.profile.name}" class="w-full text-lg p-3.5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold focus:outline-none focus:border-slate-400">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block text-lg font-black text-slate-800">Health Details</label>
+                            <textarea id="set-health" rows="2" class="w-full text-lg p-3.5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-medium focus:outline-none focus:border-slate-400">${state.profile.health || ''}</textarea>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="block text-lg font-black text-slate-800">Water Target (ml)</label>
+                            <input type="number" id="set-water" value="${state.profile.waterGoal}" class="w-full text-lg p-3.5 bg-slate-50 border-2 border-slate-200 rounded-2xl font-bold focus:outline-none focus:border-slate-400">
+                        </div>
+                        <div class="pt-2 flex gap-3">
+                            <button onclick="clearAllAppData()" class="bg-red-100 text-red-700 font-bold px-4 rounded-2xl text-sm cursor-pointer">Clear Cache</button>
+                            <button onclick="saveSettingsForm()" class="flex-1 bg-slate-900 text-white font-black py-4 rounded-2xl text-xl shadow-sm active:scale-95 cursor-pointer">Save Profiles</button>
+                        </div>
+                    </div>`;
+            } 
+            else if (feature === 'gym') {
+                title.innerText = "Gym Workout Matrix";
+                let list = "";
+                state.workouts.forEach((ex, idx) => {
+                    list += `
+                        <div class="flex items-center justify-between p-4 ${ex.completed ? 'bg-slate-100 text-slate-400' : 'bg-blue-50/50'} rounded-2xl border border-slate-100">
+                            <div class="flex-1 mr-2">
+                                <input type="text" value="${ex.name}" onchange="modifyWorkoutItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-lg text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-blue-400 ${ex.completed ? 'line-through opacity-50' : ''}">
+                                <input type="text" value="${ex.detail}" onchange="modifyWorkoutItem(${idx}, 'detail', this.value)" class="bg-transparent font-medium text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-blue-400 mt-0.5">
+                            </div>
+                            <button onclick="toggleWorkout(${idx})" class="p-2.5 rounded-xl border transition-all ${ex.completed ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-slate-400 border-slate-200 active:scale-90'}">
+                                <i data-lucide="${ex.completed ? 'check-square' : 'square'}" class="w-6 h-6"></i>
+                            </button>
+                        </div>`;
+                });
+                body.innerHTML = `
+                    <div class="space-y-3">${list}</div>
+                    <div class="pt-4 flex gap-2">
+                        <button onclick="addNewWorkoutRow()" class="flex-1 bg-blue-50 text-blue-700 font-bold py-3 rounded-xl border border-blue-200 text-sm active:scale-95 transition-all">Add Workout Move</button>
+                        <button onclick="resetWorkouts()" class="bg-slate-100 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm active:scale-95 transition-all">Reset Sync</button>
+                    </div>`;
+            } 
+            else if (feature === 'meds') {
+                title.innerText = "Medical Schedule Logs";
+                let list = "";
+                state.medications.forEach((med, idx) => {
+                    list += `
+                        <div class="flex items-center justify-between p-4 ${med.taken ? 'bg-slate-100 opacity-60' : 'bg-red-50/50'} rounded-2xl border border-slate-100">
+                            <div class="flex-1 mr-2">
+                                <input type="text" value="${med.name}" onchange="modifyMedicationItem(${idx}, 'name', this.value)" class="bg-transparent font-black text-lg text-slate-900 w-full focus:outline-none border-b border-transparent focus:border-red-400 ${med.taken ? 'line-through opacity-50' : ''}">
+                                <input type="text" value="${med.time}" onchange="modifyMedicationItem(${idx}, 'time', this.value)" class="bg-transparent font-bold text-xs text-slate-500 w-full focus:outline-none border-b border-transparent focus:border-red-400 mt-0.5">
+                            </div>
+                            <button onclick="toggleMed(${idx})" class="font-black text-xs px-4 py-2.5 rounded-xl border transition-all ${med.taken ? 'bg-slate-200 text-slate-600 border-slate-300' : 'bg-white text-red-600 border-red-200 active:scale-90'}">
+                                ${med.taken ? 'TAKEN' : 'MARK DUE'}
+                            </button>
+                        </div>`;
+                });
+                body.innerHTML = `
+                    <div class="space-y-3">${list}</div>
+                    <div class="pt-4 flex gap-2">
+                        <button onclick="addNewMedicationRow()" class="flex-1 bg-red-50 text-red-700 font-bold py-3 rounded-xl border border-red-200 text-sm active:scale-95 transition-all">Add Medicine</button>
+                        <button onclick="resetMeds()" class="bg-slate-100 text-slate-600 font-bold py-3 px-4 rounded-xl text-sm active:scale-95 transition-all">Reset All</button>
+                    </div>`;
+            } 
+            else if (feature === 'recipes') {
+                title.innerText = "Recipes Maker";
+                body.innerHTML = `
+                    <div class="space-y-2">
+                        <label class="block text-lg font-black text-slate-800">Available Ingredients</label>
+                        <input type="text" id="recipe-input" oninput="currentRecipeInput = this.value" placeholder="e.g. Chicken, mushrooms" class="w-full text-lg p-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-[#32b053]" value="${currentRecipeInput}">
+                    </div>
+                    <button onclick="generateHighFidelityRecipe()" class="w-full bg-[#32b053] text-white font-black py-4 rounded-2xl text-xl shadow-md active:scale-95 cursor-pointer">Generate Recipe</button>
+                    <div id="ai-output" class="mt-2">${currentRecipeOutputHtml}</div>`;
+            } 
+            else if (feature === 'appointments') {
+                title.innerText = "Appointments Reminders";
+                let list = "";
+                state.appointments.forEach((appt, idx) => {
+                    list += `
+                        <div class="flex items-start justify-between p-4 ${appt.done ? 'bg-slate-100 opacity-60' : 'bg-purple-50'} rounded-2xl border border-purple-100">
+                            <div class="flex-1 mr-2 border-l-4 border-purple-500 pl-3">
+                                <input type="text" value="${appt.title}" onchange="modifyAppointmentItem(${idx}, 'title', this.value)" class="bg-transparent font-black text-base text-slate-900 w-full focus:outline-none ${appt.done ? 'line-through text-slate-400' : ''}">
+                                <input type="text" value="${appt.schedule}" onchange="modifyAppointmentItem(${idx}, 'schedule', this.value)" class="bg-transparent font-black text-xs text-purple-700 w-full focus:outline-none mt-0.5">
+                            </div>
+                            <button onclick="toggleAppointment(${idx})" class="p-2 bg-white rounded-lg border border-purple-200 text-purple-700 active:scale-90 transition-transform">
+                                <i data-lucide="${appt.done ? 'check-circle' : 'circle'}" class="w-5 h-5"></i>
+                            </button>
+                        </div>`;
+                });
+                body.innerHTML = `
+                    <div class="space-y-3">${list || '<p class="text-slate-400 text-center py-4">No data tracks.</p>'}</div>
+                    <button onclick="addNewAppointmentRow()" class="w-full bg-purple-50 text-purple-700 font-bold py-3 rounded-xl border border-purple-200 text-sm active:scale-95 transition-all mt-2">Create New Event Reminder</button>`;
+            } 
+            else if (feature === 'grocery') {
+                title.innerText = "Smart Grocery List";
+                let list = "";
+                state.groceries.forEach((item, idx) => {
+                    list += `
+                        <div class="flex justify-between items-center text-lg font-bold p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div class="flex items-center gap-2 flex-1">
+                                <input type="text" value="${item.name}" onchange="modifyGroceryItemFields(${idx}, 'name', this.value)" class="bg-transparent font-black text-base text-slate-800 focus:outline-none border-b border-transparent focus:border-amber-400 w-1/2">
+                                <input type="number" value="${item.qty || 1}" onchange="modifyGroceryItemFields(${idx}, 'qty', this.value)" class="bg-white px-2 py-0.5 border rounded text-sm w-16 text-center font-bold">
+                                <select onchange="modifyGroceryItemFields(${idx}, 'unit', this.value)" class="bg-white p-0.5 border rounded text-xs font-medium">
+                                    <option value="Kg" ${item.unit === 'Kg' ? 'selected' : ''}>Kg</option>
+                                    <option value="Oz" ${item.unit === 'Oz' ? 'selected' : ''}>Oz</option>
+                                    <option value="Pcs" ${item.unit === 'Pcs' ? 'selected' : ''}>Pcs</option>
+                                    <option value="Grams" ${item.unit === 'Grams' ? 'selected' : ''}>g</option>
+                                    <option value="Liters" ${item.unit === 'Liters' ? 'selected' : ''}>L</option>
+                                </select>
+                            </div>
+                            <button onclick="deleteGrocery(${idx})" class="text-red-500 font-bold text-base w-8 h-8 rounded-full cursor-pointer hover:bg-red-50">✕</button>
+                        </div>`;
+                });
+                body.innerHTML = `
+                    <div class="space-y-2 bg-amber-50/50 p-3 rounded-2xl border border-amber-100">
+                        <div class="flex gap-2">
+                            <input type="text" id="g-input" placeholder="Item Name..." class="flex-1 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#f59e0b]">
+                            <input type="number" id="g-qty" placeholder="Qty" value="1" class="w-16 text-sm p-3 bg-white border-2 border-slate-200 rounded-xl text-center font-bold focus:outline-none focus:border-[#f59e0b]">
+                        </div>
+                        <div class="flex gap-2">
+                            <select id="g-unit" class="flex-1 text-sm p-2.5 bg-white border-2 border-slate-200 rounded-xl focus:outline-none font-bold">
+                                <option value="Kg">Kilograms (Kg)</option>
+                                <option value="Oz">Ounces (Oz)</option>
+                                <option value="Pcs">Pieces (Pcs)</option>
+                                <option value="Grams">Grams (g)</option>
+                                <option value="Liters">Liters (L)</option>
+                            </select>
+                            <button onclick="addGroceryItem()" class="bg-[#f59e0b] text-white px-6 py-2.5 font-black rounded-xl active:scale-95 transition-transform cursor-pointer">ADD ITEM</button>
+                        </div>
+                    </div>
+                    <div class="space-y-2 mt-3 max-h-56 overflow-y-auto">${list || '<p class="text-slate-400 text-center py-4">No items listed</p>'}</div>`;
+            } 
+            else if (feature === 'expense') {
+                title.innerText = "Expenses Tracker";
+                let list = "";
+                state.expenses.forEach((exp, idx) => {
+                    list += `
+                        <div class="flex justify-between items-center text-base font-bold p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div class="flex-1 mr-2 grid grid-cols-2 gap-2">
+                                <input type="text" value="${exp.desc}" onchange="modifyExpenseFields(${idx}, 'desc', this.value)" class="bg-transparent text-sm text-slate-600 font-bold focus:outline-none border-b border-transparent focus:border-sky-400">
+                                <input type="number" value="${exp.amount}" onchange="modifyExpenseFields(${idx}, 'amount', this.value)" class="bg-transparent text-sm text-slate-900 font-black text-right focus:outline-none border-b border-transparent focus:border-sky-400">
+                            </div>
+                            <button onclick="deleteExpense(${idx})" class="text-slate-400 hover:text-red-500 font-bold pl-2">✕</button>
+                        </div>`;
+                });
+                body.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 bg-sky-50 p-3 rounded-2xl border border-sky-100">
+                        <input type="text" id="e-desc" placeholder="Description..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0ea5e9]">
+                        <input type="number" id="e-amt" placeholder="Amount (₱)..." class="text-sm p-3 bg-white border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0ea5e9]" onkeydown="if(event.key==='Enter') addExpenseItem()">
+                    </div>
+                    <button onclick="addExpenseItem()" class="w-full bg-[#0ea5e9] text-white py-3 font-black rounded-xl mt-2 active:scale-95 transition-transform cursor-pointer">ADD LEDGER RECORD</button>
+                    <div class="space-y-2 mt-3 max-h-48 overflow-y-auto">${list || '<p class="text-slate-400 text-center py-4">No records saved</p>'}</div>`;
+            }
+            else if (feature === 'notifications') {
+                title.innerText = "Notifications Hub";
+                body.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="p-3 bg-red-50 text-red-900 font-bold rounded-xl text-sm">⚠️ Medication Reminder: Check layout logs.</div>
+                        <div class="p-3 bg-blue-50 text-blue-900 font-bold rounded-xl text-sm">💧 Water Target Check: Hydrate evenly today.</div>
+                    </div>`;
+                document.getElementById('notif-badge').classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('app-modal').classList.add('hidden');
+        }
+
+        function saveSettingsForm() {
+            state.profile.name = document.getElementById('set-name').value.trim() || "User";
+            state.profile.health = document.getElementById('set-health').value.trim();
+            state.profile.waterGoal = parseInt(document.getElementById('set-water').value) || 2500;
+            updateWaterUI();
+            saveState();
+            closeModal();
+        }
+
+        // WORKOUT FUNCTIONS
+        function toggleWorkout(idx) { state.workouts[idx].completed = !state.workouts[idx].completed; saveState(); openModal('gym'); }
+        function modifyWorkoutItem(idx, key, val) { state.workouts[idx][key] = val; saveState(); }
+        function addNewWorkoutRow() { state.workouts.push({ id: Date.now(), name: "New Exercise", detail: "Sets x Reps", completed: false }); saveState(); openModal('gym'); }
+        function resetWorkouts() { state.workouts = [{ id: 1, name: "Goblet Squats", detail: "3 Sets x 10 Reps", completed: false }]; saveState(); openModal('gym'); }
+
+        // MEDICATION FUNCTIONS
+        function toggleMed(idx) { state.medications[idx].taken = !state.medications[idx].taken; saveState(); openModal('meds'); }
+        function modifyMedicationItem(idx, key, val) { state.medications[idx][key] = val; saveState(); }
+        function addNewMedicationRow() { state.medications.push({ id: Date.now(), name: "New Med Entry", time: "12:00 PM", taken: false }); saveState(); openModal('meds'); }
+        function resetMeds() { state.medications = [{ id: 1, name: "Daily Multivitamin", time: "8:00 AM", taken: false }]; saveState(); openModal('meds'); }
+
+        // APPOINTMENT REMINDER FUNCTIONS
+        function toggleAppointment(idx) { state.appointments[idx].done = !state.appointments[idx].done; saveState(); openModal('appointments'); }
+        function modifyAppointmentItem(idx, key, val) { state.appointments[idx][key] = val; saveState(); }
+        function addNewAppointmentRow() { state.appointments.push({ id: Date.now(), title: "Click to change title", schedule: "Set Date/Time", done: false }); saveState(); openModal('appointments'); }
+
+        // SMART GROCERY SYSTEM WITH DYNAMIC UNITS FIELD DROP-DOWN
+        function addGroceryItem() {
+            const input = document.getElementById('g-input');
+            const qtyInput = document.getElementById('g-qty');
+            const unitSelect = document.getElementById('g-unit');
+            if(!input || !input.value.trim()) return;
+            
+            state.groceries.push({ 
+                name: input.value.trim(),
+                qty: parseInt(qtyInput.value) || 1,
+                unit: unitSelect.value
+            });
+            saveState();
+            openModal('grocery');
+        }
+        function modifyGroceryItemFields(idx, key, val) {
+            state.groceries[idx][key] = key === 'qty' ? parseInt(val) || 1 : val;
+            saveState();
+        }
+        function deleteGrocery(idx) { state.groceries.splice(idx, 1); saveState(); openModal('grocery'); }
+
+        // EXPENSE TRACKING MATRIX
+        function addExpenseItem() {
+            const desc = document.getElementById('e-desc');
+            const amt = document.getElementById('e-amt');
+            if(!desc || !amt || !desc.value.trim() || !amt.value) return;
+            state.expenses.push({ desc: desc.value.trim(), amount: parseFloat(amt.value) || 0 });
+            saveState();
+            openModal('expense');
+        }
+        function modifyExpenseFields(idx, key, val) {
+            state.expenses[idx][key] = key === 'amount' ? parseFloat(val) || 0 : val;
+            saveState();
+        }
+        function deleteExpense(idx) { state.expenses.splice(idx, 1); saveState(); openModal('expense'); }
+
+        function clearAllAppData() {
+            if(confirm("Reset storage metrics data cache?")) {
+                localStorage.removeItem("synergy360_state");
+                window.location.reload();
+            }
+        }
+
+        // HIGH FIDELITY RECIPE GENERATOR WITH INGREDIENTS & MEASUREMENTS
+        function generateHighFidelityRecipe() {
+            const ingredientsInput = document.getElementById('recipe-input').value.trim();
+            if (!ingredientsInput) return alert("Specify ingredients first!");
+            
+            const out = document.getElementById('ai-output');
+            out.innerHTML = `<div class="text-center py-4"><div class="animate-spin inline-block w-6 h-6 border-4 border-[#32b053] border-t-transparent rounded-full mb-2"></div><p class="text-slate-500 font-bold text-sm">Structuring menu alternatives...</p></div>`;
+            
+            setTimeout(() => {
+                const queryClean = ingredientsInput.toLowerCase();
+                let recipeTitle = "Low-Carb Gourmet Stir Sauté";
+                let kcal = 290, pro = 22, carbs = 5;
+                
+                let components = [
+                    { name: "Input Choice Protein", measure: "200g" },
+                    { name: "Olive Oil / Butter", measure: "1 tbsp" },
+                    { name: "Mixed Green Vegetables", measure: "1 cup" },
+                    { name: "Salt & Sugar-Free Spices", measure: "To taste" }
+                ];
+                let steps = ["Prepare and wash ingredients cleanly.", "Heat pan over medium with olive oil or butter.", "Sauté protein components safely for 6-8 mins.", "Toss greens, season with sugar-free spices, and serve hot."];
+
+                // Check for explicit combination profiles
+                if (queryClean.includes("chicken") && queryClean.includes("mushroom")) {
+                    recipeTitle = "Low-Carb Chicken & Mushroom Pastil Style";
+                    kcal = 320; pro = 34; carbs = 3;
+                    components = [
+                        { name: "Chicken Breast Fillet", measure: "250g" },
+                        { name: "Fresh Oyster Mushroom Chunks", measure: "100g" },
+                        { name: "Coconut Oil", measure: "1.5 tbsp" },
+                        { name: "Garlic (Minced)", measure: "3 cloves" },
+                        { name: "Sugar-Free Liquid Aminos", measure: "2 tbsp" }
+                    ];
+                    steps = [
+                        "Boil chicken breast fillet, then shred completely into thin strips.",
+                        "Finely clean and chop fresh mushroom chunks into uniform pieces.",
+                        "Heat coconut oil in a non-stick pan over medium heat; sauté garlic until aromatic.",
+                        "Toss in shredded chicken and mushroom chunks, stirring frequently.",
+                        "Pour in the sugar-free liquid aminos, reduce heat, and simmer until completely dry and slightly flaky."
+                    ];
+                } else if (queryClean.includes("chicken")) {
+                    recipeTitle = "Savory Shredded Chicken Adobo Sauté";
+                    kcal = 340; pro = 31; carbs = 2;
+                    components = [
+                        { name: "Chicken Breast Cuts", measure: "250g" },
+                        { name: "White Vinegar", measure: "2 tbsp" },
+                        { name: "Soy Sauce / Coconut Aminos", measure: "3 tbsp" },
+                        { name: "Garlic Crushed", measure: "4 cloves" },
+                        { name: "Whole Peppercorns & Bay Leaf", measure: "1 tsp / 2 pcs" }
+                    ];
+                    steps = [
+                        "Slice chicken breast into uniform bite-sized pieces.",
+                        "Marinate chicken in soy sauce, white vinegar, crushed garlic, and peppercorns for 15 minutes.",
+                        "Heat pan over medium-high heat, sear chicken pieces until edges turn golden crisp.",
+                        "Pour in remaining marinade mix, add bay leaves, cover and simmer until liquid is beautifully reduced."
+                    ];
+                }
+
+                currentRecipeOutputHtml = `
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-4 text-left animate-fadeIn">
+                        <div>
+                            <h4 class="font-black text-slate-900 text-lg">${recipeTitle}</h4>
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs font-black mt-1.5">
+                                <div class="bg-emerald-50 text-emerald-800 p-2 rounded-xl">🔥 ${kcal} kcal</div>
+                                <div class="bg-blue-50 text-blue-800 p-2 rounded-xl">💪 ${pro}g Pro</div>
+                                <div class="bg-amber-50 text-amber-800 p-2 rounded-xl">🥗 ${carbs}g Carb</div>
+                            </div>
+                        </div>
+
+                        <!-- Ingredients & Measurements Block -->
+                        <div>
+                            <p class="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">📋 Ingredients & Measures</p>
+                            <div class="grid grid-cols-1 gap-1.5 bg-white p-3 rounded-xl border border-slate-100">
+                                ${components.map(c => `
+                                    <div class="flex justify-between items-center text-xs font-bold">
+                                        <span class="text-slate-700">🔹 ${c.name}</span>
+                                        <span class="text-[#32b053] font-black bg-emerald-50 px-2 py-0.5 rounded-md">${c.measure}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <!-- Instructions Block -->
+                        <div>
+                            <p class="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5">🍳 Instructions</p>
+                            <ol class="text-xs text-slate-700 font-medium list-decimal pl-4 space-y-1.5">
+                                ${steps.map(s => `<li>${s}</li>`).join('')}
+                            </ol>
+                        </div>
+                    </div>`;
+                out.innerHTML = currentRecipeOutputHtml;
+            }, 800);
+        }
+
+        // INITIAL ENGINE INITIALIZATION
+        updateWaterUI();
+        updateDashboardCounters();
+        lucide.createIcons();
+    </script>
+</body>
+</html>
